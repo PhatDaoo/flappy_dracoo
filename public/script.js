@@ -2,7 +2,7 @@
 let socket;
 
 // !!! QUAN TRỌNG: THAY LINK RENDER CỦA BẠN VÀO ĐÂY !!!
-const SERVER_URL = "https://flappy-draco.onrender.com"; 
+const SERVER_URL = "https://flappy-dracoo.onrender.com"; 
 // Nếu chạy local thì dùng: const SERVER_URL = "http://localhost:3000";
 
 let isMultiplayer = false;
