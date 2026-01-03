@@ -8,6 +8,17 @@
 </head>
 <body>
     
+    <div id="loading-overlay">
+        <video autoplay loop muted playsinline id="loading-video">
+            <source src="intro.mp4" type="video/mp4">
+        </video>
+        <div class="loading-content">
+            <h2>CONNECTING...</h2>
+            <div class="spinner"></div>
+            <p>Loading...</p>
+        </div>
+    </div>
+
     <div id="ui-layer">
         <div id="main-menu">
             <h1>FLAPPY DRACO</h1>
@@ -41,14 +52,9 @@
             <h2>RESULT</h2>
             <table id="score-table">
                 <thead>
-                    <tr>
-                        <th>Rank</th>
-                        <th>Name</th>
-                        <th>Score</th>
-                    </tr>
+                    <tr><th>Rank</th><th>Name</th><th>Score</th></tr>
                 </thead>
-                <tbody id="score-body">
-                    </tbody>
+                <tbody id="score-body"></tbody>
             </table>
             <div id="host-controls" class="hidden">
                 <button onclick="requestStartGame()">PLAY AGAIN</button>
@@ -62,12 +68,10 @@
         <div id="single-gameover-screen" class="hidden">
             <h2 style="color: #e74c3c;">GAME OVER</h2>
             <div class="score-box">
-                <p>SCORE</p>
-                <span id="sp-current-score">0</span>
+                <p>SCORE</p><span id="sp-current-score">0</span>
             </div>
             <div class="score-box">
-                <p>BEST</p>
-                <span id="sp-best-score">0</span>
+                <p>BEST</p><span id="sp-best-score">0</span>
             </div>
             <div class="menu-buttons" style="margin-top: 20px;">
                 <button onclick="restartSinglePlayer()">RESTART</button>
@@ -82,7 +86,7 @@
         <canvas id="board"></canvas>
     </div>
 
-    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
