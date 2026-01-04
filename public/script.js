@@ -2,8 +2,7 @@
 let socket;
 
 // !!! QUAN TRỌNG: THAY LINK RENDER CỦA BẠN VÀO ĐÂY !!!
-const SERVER_URL = "https://flappy-dracoo.onrender.com"; 
-// Nếu chạy local thì dùng: const SERVER_URL = "http://localhost:3000";
+const SERVER_URL = "https://flappy-draco.onrender.com"; 
 
 let isMultiplayer = false;
 let currentRoomId = null;
@@ -11,26 +10,29 @@ let myName = "Player";
 let remotePlayers = {}; 
 let isHost = false; 
 
-// --- CẤU HÌNH ĐỘ KHÓ (CLIENT - DỄ DÀNG CHỈNH SỬA) ---
+// --- CẤU HÌNH ĐỘ KHÓ (CLIENT) ---
 const GAME_DIFFICULTY = {
-    baseSpeed: -3,       // Tốc độ ban đầu
-    speedIncrease: -0.5, // Mỗi cấp độ tăng thêm bao nhiêu (số âm)
-    milestone: 10,       // Bao nhiêu điểm thì tăng cấp 1 lần
-    maxSpeed: -8         // Tốc độ tối đa (không nhanh hơn mức này)
+    baseSpeed: -3,       
+    speedIncrease: -0.5, 
+    milestone: 10,       
+    maxSpeed: -8         
 };
 
-// Board
-let board;
-let boardWidth = 360; 
-let boardHeight = 640;
+// --- CẤU HÌNH MAP (RESPONSIVE) ---
+const LOGICAL_HEIGHT = 640; 
+let boardWidth;  // Sẽ được tính tự động
+let boardHeight = LOGICAL_HEIGHT;
 let context;
+let board;
+
+const DRACO_FIXED_X = 60;   // Rồng luôn đứng cách lề trái 60px
+const PIPE_SPAWN_X = 800;  // Cột luôn sinh ra ở xa (1000px)
 
 // Draco (90x90)
 let dracoWidth = 90;
 let dracoHeight = 90;
-let dracoX = boardWidth / 8;
-let dracoY = boardHeight / 2;
-let draco = { x: dracoX, y: dracoY, width: dracoWidth, height: dracoHeight, rotation: 0 };
+// Rồng dùng DRACO_FIXED_X thay vì vị trí tương đối
+let draco = { x: DRACO_FIXED_X, y: boardHeight / 2, width: dracoWidth, height: dracoHeight, rotation: 0 };
 
 // Assets
 let dracoImg1 = new Image(); 
@@ -39,7 +41,6 @@ let currentDracoSprite;
 let wingFlapSpeed = 25; 
 
 // Physics
-// velocityX bây giờ sẽ biến thiên, không cố định
 let velocityY = 0; 
 let gravity = 0.25; 
 let jumpStrength = -6; 
@@ -48,7 +49,7 @@ let jumpStrength = -6;
 let pipeArray = [];
 let pipeWidth = 64;
 let pipeHeight = 512;
-let pipeX = boardWidth; 
+// pipeGap giữ nguyên logic
 let pipeGap = boardHeight / 3.2; 
 
 // State
@@ -81,9 +82,11 @@ window.onload = function() {
     const loadStartTime = Date.now();
 
     board = document.getElementById("board");
-    board.height = boardHeight; 
-    board.width = boardWidth;
     context = board.getContext("2d"); 
+
+    // Tự động chỉnh kích thước ngay khi load
+    resizeGame();
+    window.addEventListener('resize', resizeGame);
 
     dracoImg1.src = 'dd.png'; 
     dracoImg2.src = 'cc.png';
@@ -115,6 +118,18 @@ window.onload = function() {
     document.addEventListener("keydown", handleInput);
     board.addEventListener("mousedown", handleInputMouse); 
     board.addEventListener("touchstart", handleInputTouch, {passive: false});
+}
+
+// --- HÀM RESIZE GAME ---
+function resizeGame() {
+    let aspectRatio = window.innerWidth / window.innerHeight;
+    // Giữ chiều cao cố định 640 logic, tính chiều rộng tương ứng
+    boardHeight = LOGICAL_HEIGHT;
+    boardWidth = LOGICAL_HEIGHT * aspectRatio;
+
+    // Cập nhật thuộc tính canvas
+    board.height = boardHeight;
+    board.width = boardWidth;
 }
 
 // --- MENU FUNCTIONS ---
@@ -269,27 +284,19 @@ function updatePhysics() {
 
     if (gameState === "PLAYING" || gameState === "GAMEOVER_SPECTATING") {
         
-        // 1. TÍNH TOÁN TỐC ĐỘ HIỆN TẠI (Progression)
         let speedLevel = Math.floor(score / GAME_DIFFICULTY.milestone);
-        // Tốc độ = Base + (Level * Tăng thêm) -> Ví dụ: -3 + (2 * -0.5) = -4
         let currentSpeed = GAME_DIFFICULTY.baseSpeed + (speedLevel * GAME_DIFFICULTY.speedIncrease);
-        // Giới hạn không cho quá nhanh
         if (currentSpeed < GAME_DIFFICULTY.maxSpeed) currentSpeed = GAME_DIFFICULTY.maxSpeed;
 
         if (!isMultiplayer && gameState === "PLAYING") {
             singlePlayerPipeTimer += TIME_STEP;
-            // Ở Single Player, cũng cần giảm thời gian sinh cột để khớp với tốc độ
-            // BaseSpawnTime 1600, cứ mỗi level giảm 100ms
             let spawnTime = 1600 - (speedLevel * 100);
             if (spawnTime < 900) spawnTime = 900;
-
             if (singlePlayerPipeTimer > spawnTime) { placePipesLocal(); singlePlayerPipeTimer = 0; }
         }
         
         for (let i = 0; i < pipeArray.length; i++) {
             let pipe = pipeArray[i];
-            
-            // Dùng currentSpeed thay vì velocityX tĩnh
             pipe.x += currentSpeed; 
             
             if (gameState === "PLAYING") {
@@ -297,7 +304,9 @@ function updatePhysics() {
                 if (detectCollision(draco, pipe)) handleGameOver();
             }
         }
-        while (pipeArray.length > 0 && pipeArray[0].x < -pipeWidth * 2) pipeArray.shift();
+        // Xóa cột khi nó đi quá xa bên trái (vượt qua màn hình PC rộng)
+        // PIPE_SPAWN_X là 1000, nên ta xóa khi x < -200 là an toàn
+        while (pipeArray.length > 0 && pipeArray[0].x < -200) pipeArray.shift();
     }
 
     if (gameState === "PLAYING") {
@@ -307,7 +316,7 @@ function updatePhysics() {
         if (draco.y + draco.height > board.height) handleGameOver();
         if(isMultiplayer) socket.emit('update_position', { roomId: currentRoomId, y: draco.y, rotation: draco.rotation, score: score });
     } else if (gameState.includes("START") || gameState === "COUNTDOWN") {
-        frameCount++; draco.y = dracoY + Math.sin(frameCount * 0.05) * 10; draco.rotation = 0;
+        frameCount++; draco.y = boardHeight / 2 + Math.sin(frameCount * 0.05) * 10; draco.rotation = 0;
     }
 }
 
@@ -319,10 +328,11 @@ function draw() {
         Object.keys(remotePlayers).forEach(key => {
             let p = remotePlayers[key];
             if(!p.isDead) { 
-                let ghostDraco = { x: dracoX, y: p.y, width: dracoWidth, height: dracoHeight, rotation: p.rotation };
+                // Ghost Draco dùng DRACO_FIXED_X để đồng bộ
+                let ghostDraco = { x: DRACO_FIXED_X, y: p.y, width: dracoWidth, height: dracoHeight, rotation: p.rotation };
                 drawDracoSprite(ghostDraco, 0.5); 
                 context.fillStyle = "rgba(255, 255, 255, 0.8)"; context.font = "bold 14px Arial"; context.textAlign = "center";
-                context.fillText(p.name, dracoX + dracoWidth/2, p.y - 5);
+                context.fillText(p.name, DRACO_FIXED_X + dracoWidth/2, p.y - 5);
             }
         });
     }
@@ -356,9 +366,12 @@ function draw() {
 
 // --- HELPER ---
 function placePipesFromServer(y) {
-    pipeArray.push({ x: pipeX, y: y, width: pipeWidth, height: pipeHeight, passed: false });
-    pipeArray.push({ x: pipeX, y: y + pipeHeight + pipeGap, width: pipeWidth, height: pipeHeight, passed: false });
+    // Cột luôn sinh ra ở toạ độ xa (1000px) để PC thấy trước
+    let spawnX = PIPE_SPAWN_X; 
+    pipeArray.push({ x: spawnX, y: y, width: pipeWidth, height: pipeHeight, passed: false });
+    pipeArray.push({ x: spawnX, y: y + pipeHeight + pipeGap, width: pipeWidth, height: pipeHeight, passed: false });
 }
+
 function placePipesLocal() {
     let randomY = 0 - pipeHeight/4 - Math.random()*(pipeHeight/2.5);
     placePipesFromServer(randomY);
@@ -383,6 +396,7 @@ function drawDracoSprite(target, alpha) {
 function drawTextCenter(text, size, color="white") {
     context.fillStyle = color; context.strokeStyle = "black"; context.lineWidth = 4;
     context.font = `bolder ${size}px 'Courier New'`; context.textAlign = "center";
+    // Căn giữa theo boardWidth hiện tại
     context.strokeText(text, boardWidth/2, boardHeight/2); context.fillText(text, boardWidth/2, boardHeight/2);
 }
 function drawScore() {
@@ -405,7 +419,7 @@ function actionJump() {
 }
 function checkClick(x, y) { actionJump(); }
 function resetGame() {
-    draco.y = dracoY; draco.rotation = 0; velocityY = 0;
+    draco.y = boardHeight / 2; draco.rotation = 0; velocityY = 0;
     pipeArray = []; score = 0; frameCount = 0; 
     accumulator = 0; singlePlayerPipeTimer = 0;
     lastTime = performance.now();
