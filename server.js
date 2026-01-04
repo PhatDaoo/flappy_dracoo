@@ -17,7 +17,7 @@ app.use(express.static('public'));
 const SERVER_DIFFICULTY = {
     baseSpawnTime: 1600, // Tốc độ ra cột ban đầu (ms)
     timeDecreaseStep: 100, // Mỗi cấp độ giảm thời gian chờ đi 100ms
-    minSpawnTime: 900,   // Tốc độ ra cột nhanh nhất có thể (không nhanh hơn mức này)
+    minSpawnTime: 900,   // Tốc độ ra cột nhanh nhất có thể
     milestone: 10        // Cứ 10 điểm là tăng cấp
 };
 
@@ -32,8 +32,8 @@ io.on('connection', (socket) => {
         rooms[roomId] = {
             players: {},
             gameState: "WAITING",
-            spawnTimer: null, // Dùng timeout thay vì interval để linh hoạt thay đổi tốc độ
-            currentMaxScore: 0 // Theo dõi điểm cao nhất trong phòng
+            spawnTimer: null, 
+            currentMaxScore: 0
         };
         joinRoomLogic(socket, roomId, data.name);
         socket.emit('room_created', roomId);
@@ -71,7 +71,7 @@ io.on('connection', (socket) => {
     socket.on('start_game_request', (roomId) => {
         if(rooms[roomId]) {
             rooms[roomId].gameState = "PLAYING";
-            rooms[roomId].currentMaxScore = 0; // Reset điểm cao nhất
+            rooms[roomId].currentMaxScore = 0; 
             
             for (let pid in rooms[roomId].players) {
                 rooms[roomId].players[pid].isDead = false;
@@ -80,10 +80,8 @@ io.on('connection', (socket) => {
 
             io.to(roomId).emit('game_started');
 
-            // Hủy timer cũ nếu có
             if (rooms[roomId].spawnTimer) clearTimeout(rooms[roomId].spawnTimer);
             
-            // Đợi 3s countdown rồi bắt đầu vòng lặp sinh cột
             setTimeout(() => {
                 if (rooms[roomId] && rooms[roomId].gameState === "PLAYING") {
                     spawnPipeLoop(roomId);
@@ -92,29 +90,23 @@ io.on('connection', (socket) => {
         }
     });
 
-    // HÀM SINH CỘT ĐỆ QUY (Để thay đổi tốc độ linh hoạt)
     function spawnPipeLoop(roomId) {
         if (!rooms[roomId] || rooms[roomId].gameState !== "PLAYING") return;
 
-        // 1. Tính toán cấp độ dựa trên điểm cao nhất hiện tại trong phòng
         let level = Math.floor(rooms[roomId].currentMaxScore / SERVER_DIFFICULTY.milestone);
-        
-        // 2. Tính thời gian chờ tiếp theo (Càng cấp cao càng nhanh)
         let nextSpawnTime = SERVER_DIFFICULTY.baseSpawnTime - (level * SERVER_DIFFICULTY.timeDecreaseStep);
         if (nextSpawnTime < SERVER_DIFFICULTY.minSpawnTime) nextSpawnTime = SERVER_DIFFICULTY.minSpawnTime;
 
-        // 3. Sinh cột
         let pipeHeight = 512;
         let randomY = 0 - pipeHeight/4 - Math.random()*(pipeHeight/2.5);
         io.to(roomId).emit('spawn_pipe', randomY);
 
-        // 4. Hẹn giờ lần sinh tiếp theo
         rooms[roomId].spawnTimer = setTimeout(() => {
             spawnPipeLoop(roomId);
         }, nextSpawnTime);
     }
 
-    // CẬP NHẬT VỊ TRÍ & ĐIỂM SỐ
+    // CẬP NHẬT VỊ TRÍ
     socket.on('update_position', (data) => {
         if (rooms[data.roomId] && rooms[data.roomId].players[socket.id]) {
             let p = rooms[data.roomId].players[socket.id];
@@ -122,7 +114,6 @@ io.on('connection', (socket) => {
             p.rotation = data.rotation;
             p.score = data.score;
             
-            // Cập nhật điểm cao nhất của phòng để tăng độ khó
             if (p.score > rooms[data.roomId].currentMaxScore) {
                 rooms[data.roomId].currentMaxScore = p.score;
             }
@@ -153,7 +144,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // NGẮT KẾT NỐI
     socket.on('disconnect', () => {
         for (let roomId in rooms) {
             if (rooms[roomId].players[socket.id]) {
