@@ -2,7 +2,7 @@
 let socket;
 
 // !!! QUAN TRỌNG: THAY LINK RENDER CỦA BẠN VÀO ĐÂY !!!
-const SERVER_URL = "https://flappy-draco.onrender.com"; 
+const SERVER_URL = "https://flappy-dracoo.onrender.com"; 
 
 let isMultiplayer = false;
 let currentRoomId = null;
