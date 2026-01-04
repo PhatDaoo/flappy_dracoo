@@ -425,6 +425,6 @@ function resetGame() {
     lastTime = performance.now();
 }
 function detectCollision(a, b) {
-    let p = 8; 
+    let p = 18; 
     return a.x + p < b.x + b.width && a.x + a.width - p > b.x && a.y + p < b.y + b.height && a.y + a.height - p > b.y;
 }
